@@ -16,12 +16,12 @@ class LogOn {
             return '';
         }
         
-        return hash('md5', rand(0, getrandmax()) . 'some value');
+        return hash('md5', rand(0, getrandmax()).time().'6oCGlwleKsRWlwnhcWEL');
     }
 
     public function initiate()
     {
-        return hash('md5', rand(0, getrandmax()).time(). 'some value');
+        return hash('md5', rand(0, getrandmax()).time().'edqdiOCDes2b1vGO7L2Y');
     }
 }
 
