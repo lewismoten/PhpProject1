@@ -1,0 +1,4 @@
+<?php
+
+define("MESSAGE_CREDENTIALS_INVALID", 8192);
+?>
