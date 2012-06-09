@@ -10,7 +10,7 @@ class LogOnTest extends PHPUnit_Framework_TestCase {
     
     protected $target;
     private $username = 'test';
-    private $badUsername = '';
+    private $badUsername = 'badtest';
     private $password = 'password';
 
     protected function setUp() {
@@ -45,17 +45,77 @@ class LogOnTest extends PHPUnit_Framework_TestCase {
         $nonce = $this->target->initiate();
         $cnonce = hash('md5', rand(0, getrandmax()).'MyOwnValue');
         $hash = hash('md5', "$nonce:$cnonce:$this->password");
-        $token = $this->target->authenticate($this->username, $cnonce, $hash);
-        $this->assertEquals(32, strlen($token));
+        $response = $this->target->authenticate($this->username, $cnonce, $hash);
+        $this->assertTrue($response->success);
+        $this->assertRegExp('/^[a-z0-9]{32}$/', $response->content);
+    }
+    
+    public function testAuthenticateWithoutUsername()
+    {
+        $response = $this->target->authenticate('', hash('md5', 'x'), hash('md5', 'x'));
+        $this->assertFalse($response->success);
+        $this->assertEquals(MESSAGE_CREDENTIALS_INVALID, $response->errorNumber);
+        $this->assertEquals('Invalid credentials provided', $response->errorMessage);
+        $response = $this->target->authenticate(null, hash('md5', 'x'), hash('md5', 'x'));
+        $this->assertFalse($response->success);
+        $this->assertEquals(MESSAGE_CREDENTIALS_INVALID, $response->errorNumber);
+        $this->assertEquals('Invalid credentials provided', $response->errorMessage);        
+    }
+    
+    public function testAuthenticateUsernameWithBadFormat()
+    {
+        $response = $this->target->authenticate(" $this->username ", hash('md5', 'x'), hash('md5', 'x'));
+        $this->assertFalse($response->success);
+        $this->assertEquals(MESSAGE_CREDENTIALS_INVALID, $response->errorNumber);
+        $this->assertEquals('Invalid credentials provided', $response->errorMessage);
+    }
+
+    public function testAuthenticateCNonceWithBadFormat()
+    {
+        $response = $this->target->authenticate($this->username, 'x', hash('md5', 'x'));
+        $this->assertFalse($response->success);
+        $this->assertEquals(MESSAGE_CREDENTIALS_INVALID, $response->errorNumber);
+        $this->assertEquals('Invalid credentials provided', $response->errorMessage);
+    }
+    
+    public function testAuthenticateHashWithBadFormat()
+    {
+        $response = $this->target->authenticate($this->username, hash('md5', 'x'), 'x');
+        $this->assertFalse($response->success);
+        $this->assertEquals(MESSAGE_CREDENTIALS_INVALID, $response->errorNumber);
+        $this->assertEquals('Invalid credentials provided', $response->errorMessage);
+    }
+
+    public function testAuthenticateWithoutCNonce()
+    {
+        $response = $this->target->authenticate($this->username, '', 'x');
+        $this->assertFalse($response->success);
+        $this->assertEquals(MESSAGE_CREDENTIALS_INVALID, $response->errorNumber);
+        $this->assertEquals('Invalid credentials provided', $response->errorMessage);
+        $response = $this->target->authenticate($this->username, null, 'x');
+        $this->assertFalse($response->success);
+        $this->assertEquals(MESSAGE_CREDENTIALS_INVALID, $response->errorNumber);
+        $this->assertEquals('Invalid credentials provided', $response->errorMessage);
+    }
+
+    public function testAuthenticateWithoutHash()
+    {
+        $response = $this->target->authenticate($this->username, 'x', '');
+        $this->assertFalse($response->success);
+        $this->assertEquals(MESSAGE_CREDENTIALS_INVALID, $response->errorNumber);
+        $this->assertEquals('Invalid credentials provided', $response->errorMessage);
+        $response = $this->target->authenticate($this->username, 'x', null);
+        $this->assertFalse($response->success);
+        $this->assertEquals(MESSAGE_CREDENTIALS_INVALID, $response->errorNumber);
+        $this->assertEquals('Invalid credentials provided', $response->errorMessage);
     }
 
     public function testAuthenticateWithBadUsername()
     {
-        $nonce = $this->target->initiate();
-        $cnonce = hash('md5', rand(0, getrandmax()).'MyOwnValue');
-        $hash = hash('md5', "$nonce:$cnonce:$this->password");
-        $token = $this->target->authenticate($this->badUsername, $cnonce, $hash);
-        $this->assertEquals('', $token);
+        $response = $this->target->authenticate($this->badUsername, hash('md5', 'x'), hash('md5', 'x'));
+        $this->assertFalse($response->success);
+        $this->assertEquals(MESSAGE_CREDENTIALS_INVALID, $response->errorNumber);
+        $this->assertEquals('Invalid credentials provided', $response->errorMessage);
     }
 }
 
