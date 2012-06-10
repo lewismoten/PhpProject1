@@ -13,14 +13,12 @@ class LogOn {
     private $databaseWrapper;
     
     public function __construct() {
-        if(func_num_args() != 0)
-        {
-            $this->databaseWrapper = func_get_arg(0);
-        }
-        else
-        {
-            $this->databaseWrapper = new DatabaseWrapper;
-        }
+        $this->databaseWrapper = new DatabaseWrapper;
+    }
+    
+    public function setDatabaseWrapper($databaseWrapper)
+    {
+        $this->databaseWrapper = $databaseWrapper;
     }
     
     public function getVersion()
@@ -40,8 +38,6 @@ class LogOn {
             return Response::AsException(MESSAGE_CREDENTIALS_INVALID, "Invalid credentials provided");
         }
         
-        $parameters = array();
-        $parameters[] = new Parameter('AccountName', 'varchar', $username);
         $fusername = $this->databaseWrapper->escape($username);
         $query = "select AccountName, Password from Account where AccountName = '$fusername'";
         $row = $this->databaseWrapper->getRow($query);
@@ -49,13 +45,34 @@ class LogOn {
         {
             return Response::AsException(MESSAGE_CREDENTIALS_INVALID, "Invalid credentials provided");
         }
+        $nonce = $row["Nonce"];
+        $password = $row["Password"];
+        
+        $expectedHash = hash('md5', "$nonce:$cnonce:$password");
+        if($expectedHash != $hash)
+        {
+            return Response::AsException(MESSAGE_CREDENTIALS_INVALID, "Invalid credentials provided");
+        }
+        
         $content = hash('md5', rand(0, getrandmax()).time().'6oCGlwleKsRWlwnhcWEL');
         return Response::AsContent($content);
     }
 
-    public function initiate()
+    public function initiate($username)
     {
-        return hash('md5', rand(0, getrandmax()).time().'edqdiOCDes2b1vGO7L2Y');
+        $nonce = hash('md5', rand(0, getrandmax()).time().'edqdiOCDes2b1vGO7L2Y');
+        
+        if($username == '' 
+                || preg_match('/^[a-z0-9]{1,16}$/', $username) === 0)
+        {
+            return $nonce;
+        }
+        
+        $fusername = $this->databaseWrapper->escape($username);
+        $fnonce = $this->databaseWrapper->escape($nonce);
+        $query = "update `Account` set `AccountNonce` = '$fnonce' where `AccountName` = '$fusername'";
+        $this->databaseWrapper->execute($query);
+        return $nonce;
     }
 }
 

@@ -1,6 +1,5 @@
 <?php
 require_once dirname(__FILE__) . '/configuration.php';
-require_once dirname(__FILE__) . '/Parameter.php';
 
 /**
  * Description of DataProvider
@@ -100,24 +99,12 @@ class DatabaseWrapper {
         if($this->connection->error)
         {
             die($this->connection->error);
-            // TODO: log error
             return TRUE;
         }
         return FALSE;
 
     }
-    private function translateParameterType($type)
-    {
-        switch($type)
-        {
-            case "int": return "i";
-            case "float": return "d";
-            case "varchar": return "s";
-            case "blob": return "b";
-            default: return NULL;
-                
-        }
-    }
+    
     private function getConnection()
     {
         if($this->connection == NULL)
