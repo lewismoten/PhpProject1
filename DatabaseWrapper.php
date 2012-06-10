@@ -1,5 +1,6 @@
 <?php
 require_once dirname(__FILE__) . '/configuration.php';
+require_once dirname(__FILE__) . '/Parameter.php';
 
 /**
  * Description of DataProvider
@@ -30,6 +31,11 @@ class DatabaseWrapper {
        $row = $result->fetch_assoc();
        $result->free();
        return $row;
+    }
+    
+    public function escape($string_to_escape)
+    {
+         return $this->getConnection()->escape_string($string_to_escape);
     }
     
     public function getValue($query)
@@ -78,18 +84,40 @@ class DatabaseWrapper {
     
     private function query($query)
     {
-       $db = $this->getConnection();
-       $result = $db->query($query);
-
-       if($this->connection->error)
+        $db = $this->getConnection();       
+        $result = $db->query($query);
+       
+        if($this->hasError())
         {
-          die($this->connection->error);
+            return NULL;
         }
         $this->affectedRows = $this->connection->affected_rows;
         
        return $result;
     }
-    
+    private function hasError()
+    {
+        if($this->connection->error)
+        {
+            die($this->connection->error);
+            // TODO: log error
+            return TRUE;
+        }
+        return FALSE;
+
+    }
+    private function translateParameterType($type)
+    {
+        switch($type)
+        {
+            case "int": return "i";
+            case "float": return "d";
+            case "varchar": return "s";
+            case "blob": return "b";
+            default: return NULL;
+                
+        }
+    }
     private function getConnection()
     {
         if($this->connection == NULL)

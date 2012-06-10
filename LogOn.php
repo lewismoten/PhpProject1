@@ -1,5 +1,6 @@
 <?php
 require_once dirname(__FILE__) . '/Response.php';
+require_once dirname(__FILE__) . '/DatabaseWrapper.php';
 require_once dirname(__FILE__) . '/ErrorNumbers.php';
 
 /**
@@ -8,6 +9,20 @@ require_once dirname(__FILE__) . '/ErrorNumbers.php';
  * @author developer
  */
 class LogOn {
+    
+    private $databaseWrapper;
+    
+    public function __construct() {
+        if(func_num_args() != 0)
+        {
+            $this->databaseWrapper = func_get_arg(0);
+        }
+        else
+        {
+            $this->databaseWrapper = new DatabaseWrapper;
+        }
+    }
+    
     public function getVersion()
     {
         return 1;
@@ -18,14 +33,19 @@ class LogOn {
         if($username == '' 
                 || $cnonce == '' 
                 || $hash == ''
-                || preg_match('/^[a-z0-9]+$/', $username) === 0
+                || preg_match('/^[a-z0-9]{1,16}$/', $username) === 0
                 || preg_match('/^[a-f0-9]{32}$/', $cnonce) === 0
                 || preg_match('/^[a-f0-9]{32}$/', $hash) === 0)
         {
             return Response::AsException(MESSAGE_CREDENTIALS_INVALID, "Invalid credentials provided");
         }
-        //todo: look at db for username/password
-        if($username == 'badtest')
+        
+        $parameters = array();
+        $parameters[] = new Parameter('AccountName', 'varchar', $username);
+        $fusername = $this->databaseWrapper->escape($username);
+        $query = "select AccountName, Password from Account where AccountName = '$fusername'";
+        $row = $this->databaseWrapper->getRow($query);
+        if($row === NULL)
         {
             return Response::AsException(MESSAGE_CREDENTIALS_INVALID, "Invalid credentials provided");
         }

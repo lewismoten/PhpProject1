@@ -1,6 +1,6 @@
 <?php
 require_once dirname(__FILE__) . '/../LogOn.php';
-require_once 'PHPUnit/Framework.php';
+//require_once 'PHPUnit/Framework.php';
 
 /**
  * Description of LogOn
@@ -43,11 +43,21 @@ class LogOnTest extends PHPUnit_Framework_TestCase {
     
     public function testAuthenticate()
     {
-        $nonce = $this->target->initiate();
+        $row = array();
+        $row["AccountName"] = $this->username;
+        $row["Password"] = $this->password;
+        
+        $mockDatabaseWrapper = $this->getMock('DatabaseWrapper', array('getRow'));
+        $mockDatabaseWrapper->expects($this->once())
+                ->method('getRow')
+                ->will($this->returnValue($row));
+        $target = new LogOn($mockDatabaseWrapper);
+
+        $nonce = $target->initiate();
         $cnonce = hash('md5', rand(0, getrandmax()).'MyOwnValue');
         $hash = hash('md5', "$nonce:$cnonce:$this->password");
-        $response = $this->target->authenticate($this->username, $cnonce, $hash);
-        $this->assertTrue($response->success);
+        $response = $target->authenticate($this->username, $cnonce, $hash);
+        $this->assertTrue($response->success, $response->errorMessage);
         $this->assertRegExp('/^[a-z0-9]{32}$/', $response->content);
     }
     
@@ -113,13 +123,11 @@ class LogOnTest extends PHPUnit_Framework_TestCase {
 
     public function testAuthenticateWithBadUsername()
     {
-        $db = $this->getMock('DatabaseWrapper', array('getRow'));
-        $db->expects($this->once())
+        $mockDatabaseWrapper = $this->getMock('DatabaseWrapper', array('getRow'));
+        $mockDatabaseWrapper->expects($this->once())
                 ->method('getRow')
-                ->with($this->equalTo(''));
-        
-        $target = new LogOn;
-        $target->attach($db);
+                ->will($this->returnValue(NULL));
+        $target = new LogOn($mockDatabaseWrapper);
         
         $response = $target->authenticate($this->badUsername, hash('md5', 'x'), hash('md5', 'x'));
         $this->assertFalse($response->success);
