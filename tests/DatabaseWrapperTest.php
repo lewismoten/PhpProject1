@@ -23,7 +23,7 @@ class DatabaseWrapperTest extends PHPUnit_Framework_TestCase {
     }
 
     protected function tearDown() {
-        $count = $this->target->execute("drop table if exists `Example`");
+        $this->target->execute("drop table if exists `Example`");
     }
 
     public function testGetRows() {
