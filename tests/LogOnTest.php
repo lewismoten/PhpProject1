@@ -1,5 +1,6 @@
 <?php
 require_once dirname(__FILE__) . '/../LogOn.php';
+require_once 'PHPUnit/Framework.php';
 
 /**
  * Description of LogOn
@@ -112,7 +113,15 @@ class LogOnTest extends PHPUnit_Framework_TestCase {
 
     public function testAuthenticateWithBadUsername()
     {
-        $response = $this->target->authenticate($this->badUsername, hash('md5', 'x'), hash('md5', 'x'));
+        $db = $this->getMock('DatabaseWrapper', array('getRow'));
+        $db->expects($this->once())
+                ->method('getRow')
+                ->with($this->equalTo(''));
+        
+        $target = new LogOn;
+        $target->attach($db);
+        
+        $response = $target->authenticate($this->badUsername, hash('md5', 'x'), hash('md5', 'x'));
         $this->assertFalse($response->success);
         $this->assertEquals(MESSAGE_CREDENTIALS_INVALID, $response->errorNumber);
         $this->assertEquals('Invalid credentials provided', $response->errorMessage);
