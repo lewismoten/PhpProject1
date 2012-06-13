@@ -159,9 +159,35 @@ class LogOnTest extends PHPUnit_Framework_TestCase {
         $hash = hash('md5', "bad$nonce:$cnonce:$this->password");
         
         $encrypted = Encryption::encrypt($this->password);
-        print_r($encrypted);
         
         $response = $target->authenticate($this->username, $cnonce, $hash);
+        $this->assertFalse($response->success);
+        $this->assertEquals(MESSAGE_CREDENTIALS_INVALID, $response->errorNumber);
+        $this->assertEquals('Invalid credentials provided', $response->errorMessage);
+    }
+
+    public function testAuthenticateWithDuplicateNonce()
+    {
+        $row = $this->getRowResponse();
+        $nonce = $row['Nonce'];
+
+        $mockDatabaseWrapper = $this->getMock('DatabaseWrapper', array('getRow'));
+        $mockDatabaseWrapper->expects($this->once())
+                ->method('getRow')
+                ->will($this->returnValue($row));
+        $target = new LogOn;
+        $target->setDatabaseWrapper($mockDatabaseWrapper);
+
+        $cnonce = hash('md5', rand(0, getrandmax()).'MyOwnValue');
+        $hash = Encryption::stretchKey("$this->password$cnonce$nonce");
+        
+        $response = $target->authenticate($this->username, $cnonce, $hash);
+        $this->assertTrue($response->success);
+
+        $cnonce2 = hash('md5', rand(0, getrandmax()).'MyOtherValue');
+        $hash2 = Encryption::stretchKey("$this->password$cnonce2$nonce");
+
+        $response = $target->authenticate($this->username, $cnonce2, $hash2);
         $this->assertFalse($response->success);
         $this->assertEquals(MESSAGE_CREDENTIALS_INVALID, $response->errorNumber);
         $this->assertEquals('Invalid credentials provided', $response->errorMessage);
