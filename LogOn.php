@@ -36,16 +36,20 @@ class LogOn {
                 || preg_match('/^[a-f0-9]{32}$/', $cnonce) === 0
                 || preg_match('/^[a-f0-9]{32}$/', $hash) === 0)
         {
+            $this->removeNonce($username);
             return Response::AsException(MESSAGE_CREDENTIALS_INVALID, "Invalid credentials provided");
         }
         
         $fusername = $this->databaseWrapper->escape($username);
-        $query = "select AccountName, Password from Account where AccountName = '$fusername'";
+        $query = "select AccountName, Password, Nonce, iv from Account where AccountName = '$fusername' and NonceCreeated > DATE_ADD(NOW(), INTERVAL -1 MINUTE)  ";
         $row = $this->databaseWrapper->getRow($query);
         if($row === NULL)
         {
+            $this->removeNonce($username);
             return Response::AsException(MESSAGE_CREDENTIALS_INVALID, "Invalid credentials provided");
         }
+        $this->removeNonce($username);
+        
         $nonce = $row["Nonce"];
         $encrypted = new Encryption();
         $encrypted->encrypted = $row["Password"];
@@ -54,6 +58,7 @@ class LogOn {
         $password = Encryption::removeSalt($password);
         
         $expectedHash = Encryption::stretchKey("$password$cnonce$nonce");
+        
         
         if($expectedHash != $hash)
         {
@@ -64,6 +69,12 @@ class LogOn {
         return Response::AsContent($content);
     }
     
+    private function removeNonce($username)
+    {
+        $fusername = $this->databaseWrapper->escape($username);
+        $query = "update `Account` set `Nonce` = '' where `AccountName` = '$fusername'";
+        $row = $this->databaseWrapper->execute($query);
+    }
 
     public function initiate($username)
     {
