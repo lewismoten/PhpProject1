@@ -145,11 +145,8 @@ class LogOnTest extends PHPUnit_Framework_TestCase {
 
     public function testAuthenticateWithBadNonce()
     {
-        $nonce = hash('md5', 'testAuthenticateWithBadNonce');
-        $row = array();
-        $row["AccountName"] = $this->username;
-        $row["Password"] = $this->password;
-        $row["Nonce"] = $nonce;
+        $row = $this->getRowResponse();
+        $nonce = hash('md5', 'An unexpected value');
 
         $mockDatabaseWrapper = $this->getMock('DatabaseWrapper', array('getRow'));
         $mockDatabaseWrapper->expects($this->once())
@@ -161,6 +158,9 @@ class LogOnTest extends PHPUnit_Framework_TestCase {
         $cnonce = hash('md5', rand(0, getrandmax()).'MyOwnValue');
         $hash = hash('md5', "bad$nonce:$cnonce:$this->password");
         
+        $encrypted = Encryption::encrypt($this->password);
+        print_r($encrypted);
+        
         $response = $target->authenticate($this->username, $cnonce, $hash);
         $this->assertFalse($response->success);
         $this->assertEquals(MESSAGE_CREDENTIALS_INVALID, $response->errorNumber);
@@ -169,12 +169,9 @@ class LogOnTest extends PHPUnit_Framework_TestCase {
 
     public function testAuthenticateWithBadPassword()
     {
-        $nonce = hash('md5', 'testAuthenticateWithBadPassword');
-        $row = array();
-        $row["AccountName"] = $this->username;
-        $row["Password"] = $this->password;
-        $row["Nonce"] = $nonce;
-        
+        $row = $this->getRowResponse();
+        $nonce = $row["Nonce"];
+       
         $mockDatabaseWrapper = $this->getMock('DatabaseWrapper', array('getRow'));
         $mockDatabaseWrapper->expects($this->once())
                 ->method('getRow')
@@ -183,22 +180,36 @@ class LogOnTest extends PHPUnit_Framework_TestCase {
         $target->setDatabaseWrapper($mockDatabaseWrapper);
         
         $cnonce = hash('md5', rand(0, getrandmax()).'MyOwnValue');
-        $hash = hash('md5', "$nonce:$cnonce:bad$this->password");
-        
+        $hash = Encryption::stretchKey("bad$this->password$cnonce$nonce");
+       
         $response = $target->authenticate($this->username, $cnonce, $hash);
         $this->assertFalse($response->success);
         $this->assertEquals(MESSAGE_CREDENTIALS_INVALID, $response->errorNumber);
         $this->assertEquals('Invalid credentials provided', $response->errorMessage);
     }
 
-    public function testAuthenticate()
+    public function testEncryption()
     {
-        $nonce = hash('md5', 'testAuthenticate');
+        $encryption = Encryption::encrypt($this->password);
+        $decrypted = Encryption::decrypt($encryption);
+        $this->assertEquals($this->password, $decrypted);
+    }
+    private function getRowResponse()
+    {
         $row = array();
         $row["AccountName"] = $this->username;
-        $row["Password"] = $this->password;
-        $row["Nonce"] = $nonce;
         
+        $row["Nonce"] = hash('md5', 'Just an example');
+        
+        $encryption = Encryption::encrypt("$this->password:my salt value");
+        $row["Password"] = $encryption->encrypted;
+        $row["iv"] = $encryption->iv;
+        
+        return $row;
+    }
+    public function testAuthenticate()
+    {
+        $row = $this->getRowResponse();
         $mockDatabaseWrapper = $this->getMock('DatabaseWrapper', array('getRow'));
         $mockDatabaseWrapper->expects($this->once())
                 ->method('getRow')
@@ -206,11 +217,14 @@ class LogOnTest extends PHPUnit_Framework_TestCase {
         $target = new LogOn;
         $target->setDatabaseWrapper($mockDatabaseWrapper);
 
+        $nonce = $row["Nonce"];
         $cnonce = hash('md5', rand(0, getrandmax()).'MyOwnValue');
-        $hash = hash('md5', "$nonce:$cnonce:$this->password");
+        $hash = Encryption::stretchKey("$this->password$cnonce$nonce");
         $response = $target->authenticate($this->username, $cnonce, $hash);
         $this->assertTrue($response->success, $response->errorMessage);
         $this->assertRegExp('/^[a-z0-9]{32}$/', $response->content);
-    }}
+    }
+    
+    }
 
 ?>

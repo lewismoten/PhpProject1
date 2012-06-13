@@ -2,6 +2,7 @@
 require_once dirname(__FILE__) . '/Response.php';
 require_once dirname(__FILE__) . '/DatabaseWrapper.php';
 require_once dirname(__FILE__) . '/ErrorNumbers.php';
+require_once dirname(__FILE__) . '/Encryption.php';
 
 /**
  * Description of LogOn
@@ -46,9 +47,14 @@ class LogOn {
             return Response::AsException(MESSAGE_CREDENTIALS_INVALID, "Invalid credentials provided");
         }
         $nonce = $row["Nonce"];
-        $password = $row["Password"];
+        $encrypted = new Encryption();
+        $encrypted->encrypted = $row["Password"];
+        $encrypted->iv = $row["iv"];
+        $password = Encryption::decrypt($encrypted);
+        $password = Encryption::removeSalt($password);
         
-        $expectedHash = hash('md5', "$nonce:$cnonce:$password");
+        $expectedHash = Encryption::stretchKey("$password$cnonce$nonce");
+        
         if($expectedHash != $hash)
         {
             return Response::AsException(MESSAGE_CREDENTIALS_INVALID, "Invalid credentials provided");
@@ -57,6 +63,7 @@ class LogOn {
         $content = hash('md5', rand(0, getrandmax()).time().'6oCGlwleKsRWlwnhcWEL');
         return Response::AsContent($content);
     }
+    
 
     public function initiate($username)
     {
