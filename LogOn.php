@@ -55,9 +55,9 @@ class LogOn {
         $encrypted->encrypted = $row["Password"];
         $encrypted->iv = $row["iv"];
         $password = Encryption::decrypt($encrypted);
-        $password = Encryption::removeSalt($password);
+        $password = Encryption::desalt($password);
         
-        $expectedHash = Encryption::stretchKey("$password$cnonce$nonce");
+        $expectedHash = Encryption::strengthenKey($password, "$cnonce$nonce", KEY_STRENGTH);
         
         
         if($expectedHash != $hash)
@@ -65,7 +65,7 @@ class LogOn {
             return Response::AsException(MESSAGE_CREDENTIALS_INVALID, "Invalid credentials provided");
         }
         
-        $content = hash('md5', rand(0, getrandmax()).time().'6oCGlwleKsRWlwnhcWEL');
+        $content = Encryption::generateNonce();
         return Response::AsContent($content);
     }
     
@@ -78,7 +78,7 @@ class LogOn {
 
     public function initiate($username)
     {
-        $nonce = hash('md5', rand(0, getrandmax()).time().'edqdiOCDes2b1vGO7L2Y');
+        $nonce = Encryption::generateNonce();
         
         if($username == '' 
                 || preg_match('/^[a-z0-9]{1,16}$/', $username) === 0)

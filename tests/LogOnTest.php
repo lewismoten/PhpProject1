@@ -66,11 +66,11 @@ class LogOnTest extends PHPUnit_Framework_TestCase {
     
     public function testAuthenticateWithoutUsername()
     {
-        $response = $this->target->authenticate('', hash('md5', 'x'), hash('md5', 'x'));
+        $response = $this->target->authenticate('', '11111111111111111111111111111111', '11111111111111111111111111111111');
         $this->assertFalse($response->success);
         $this->assertEquals(MESSAGE_CREDENTIALS_INVALID, $response->errorNumber);
         $this->assertEquals('Invalid credentials provided', $response->errorMessage);
-        $response = $this->target->authenticate(null, hash('md5', 'x'), hash('md5', 'x'));
+        $response = $this->target->authenticate(null, '11111111111111111111111111111111', '11111111111111111111111111111111');
         $this->assertFalse($response->success);
         $this->assertEquals(MESSAGE_CREDENTIALS_INVALID, $response->errorNumber);
         $this->assertEquals('Invalid credentials provided', $response->errorMessage);        
@@ -78,7 +78,7 @@ class LogOnTest extends PHPUnit_Framework_TestCase {
     
     public function testAuthenticateUsernameWithBadFormat()
     {
-        $response = $this->target->authenticate(" $this->username ", hash('md5', 'x'), hash('md5', 'x'));
+        $response = $this->target->authenticate(" $this->username ", '11111111111111111111111111111111', '11111111111111111111111111111111');
         $this->assertFalse($response->success);
         $this->assertEquals(MESSAGE_CREDENTIALS_INVALID, $response->errorNumber);
         $this->assertEquals('Invalid credentials provided', $response->errorMessage);
@@ -86,7 +86,7 @@ class LogOnTest extends PHPUnit_Framework_TestCase {
 
     public function testAuthenticateCNonceWithBadFormat()
     {
-        $response = $this->target->authenticate($this->username, 'x', hash('md5', 'x'));
+        $response = $this->target->authenticate($this->username, 'x', '11111111111111111111111111111111');
         $this->assertFalse($response->success);
         $this->assertEquals(MESSAGE_CREDENTIALS_INVALID, $response->errorNumber);
         $this->assertEquals('Invalid credentials provided', $response->errorMessage);
@@ -94,7 +94,7 @@ class LogOnTest extends PHPUnit_Framework_TestCase {
     
     public function testAuthenticateHashWithBadFormat()
     {
-        $response = $this->target->authenticate($this->username, hash('md5', 'x'), 'x');
+        $response = $this->target->authenticate($this->username, '11111111111111111111111111111111', 'x');
         $this->assertFalse($response->success);
         $this->assertEquals(MESSAGE_CREDENTIALS_INVALID, $response->errorNumber);
         $this->assertEquals('Invalid credentials provided', $response->errorMessage);
@@ -102,11 +102,11 @@ class LogOnTest extends PHPUnit_Framework_TestCase {
 
     public function testAuthenticateWithoutCNonce()
     {
-        $response = $this->target->authenticate($this->username, '', 'x');
+        $response = $this->target->authenticate($this->username, '', '11111111111111111111111111111111');
         $this->assertFalse($response->success);
         $this->assertEquals(MESSAGE_CREDENTIALS_INVALID, $response->errorNumber);
         $this->assertEquals('Invalid credentials provided', $response->errorMessage);
-        $response = $this->target->authenticate($this->username, null, 'x');
+        $response = $this->target->authenticate($this->username, null, '11111111111111111111111111111111');
         $this->assertFalse($response->success);
         $this->assertEquals(MESSAGE_CREDENTIALS_INVALID, $response->errorNumber);
         $this->assertEquals('Invalid credentials provided', $response->errorMessage);
@@ -114,11 +114,14 @@ class LogOnTest extends PHPUnit_Framework_TestCase {
 
     public function testAuthenticateWithoutHash()
     {
-        $response = $this->target->authenticate($this->username, 'x', '');
+        $cnonce = Encryption::generateNonce();
+        $response = $this->target->authenticate($this->username, $cnonce, '');
         $this->assertFalse($response->success);
         $this->assertEquals(MESSAGE_CREDENTIALS_INVALID, $response->errorNumber);
         $this->assertEquals('Invalid credentials provided', $response->errorMessage);
-        $response = $this->target->authenticate($this->username, 'x', null);
+        
+        $cnonce = Encryption::generateNonce();
+        $response = $this->target->authenticate($this->username, $cnonce, null);
         $this->assertFalse($response->success);
         $this->assertEquals(MESSAGE_CREDENTIALS_INVALID, $response->errorNumber);
         $this->assertEquals('Invalid credentials provided', $response->errorMessage);
@@ -126,7 +129,6 @@ class LogOnTest extends PHPUnit_Framework_TestCase {
 
     public function testAuthenticateWithBadUsername()
     {
-        $nonce = hash('md5', 'testAuthenticateWithBadUsername');
         $mockDatabaseWrapper = $this->getMock('DatabaseWrapper', array('getRow'));
         $mockDatabaseWrapper->expects($this->once())
                 ->method('getRow')
@@ -134,8 +136,9 @@ class LogOnTest extends PHPUnit_Framework_TestCase {
         $target = new LogOn;
         $target->setDatabaseWrapper($mockDatabaseWrapper);
         
-        $cnonce = hash('md5', rand(0, getrandmax()).'MyOwnValue');
-        $hash = hash('md5', "bad$nonce:$cnonce:$this->password");
+        $nonce = Encryption::generateNonce();
+        $cnonce = Encryption::generateNonce();
+        $hash = Encryption::strengthenKey($this->password, "$cnonce$nonce", KEY_STRENGTH);
         
         $response = $target->authenticate($this->badUsername, $cnonce, $hash);
         $this->assertFalse($response->success);
@@ -146,8 +149,6 @@ class LogOnTest extends PHPUnit_Framework_TestCase {
     public function testAuthenticateWithBadNonce()
     {
         $row = $this->getRowResponse();
-        $nonce = hash('md5', 'An unexpected value');
-
         $mockDatabaseWrapper = $this->getMock('DatabaseWrapper', array('getRow'));
         $mockDatabaseWrapper->expects($this->once())
                 ->method('getRow')
@@ -155,10 +156,9 @@ class LogOnTest extends PHPUnit_Framework_TestCase {
         $target = new LogOn;
         $target->setDatabaseWrapper($mockDatabaseWrapper);
 
-        $cnonce = hash('md5', rand(0, getrandmax()).'MyOwnValue');
-        $hash = hash('md5', "bad$nonce:$cnonce:$this->password");
-        
-        $encrypted = Encryption::encrypt($this->password);
+        $cnonce = Encryption::generateNonce();
+        $nonce = Encryption::generateNonce();
+        $hash = Encryption::strengthenKey($this->password, "$cnonce$nonce", KEY_STRENGTH);
         
         $response = $target->authenticate($this->username, $cnonce, $hash);
         $this->assertFalse($response->success);
@@ -172,20 +172,20 @@ class LogOnTest extends PHPUnit_Framework_TestCase {
         $nonce = $row['Nonce'];
 
         $mockDatabaseWrapper = $this->getMock('DatabaseWrapper', array('getRow'));
-        $mockDatabaseWrapper->expects($this->once())
+        $mockDatabaseWrapper->expects($this->exactly(2))
                 ->method('getRow')
                 ->will($this->returnValue($row));
         $target = new LogOn;
         $target->setDatabaseWrapper($mockDatabaseWrapper);
 
-        $cnonce = hash('md5', rand(0, getrandmax()).'MyOwnValue');
-        $hash = Encryption::stretchKey("$this->password$cnonce$nonce");
+        $cnonce = Encryption::generateNonce();
+        $hash = Encryption::strengthenKey($this->password, "$cnonce$nonce", KEY_STRENGTH);
         
         $response = $target->authenticate($this->username, $cnonce, $hash);
         $this->assertTrue($response->success);
 
-        $cnonce2 = hash('md5', rand(0, getrandmax()).'MyOtherValue');
-        $hash2 = Encryption::stretchKey("$this->password$cnonce2$nonce");
+        $cnonce2 = Encryption::generateNonce();
+        $hash2 = Encryption::strengthenKey($this->password, "$cnonce$nonce", KEY_STRENGTH);
 
         $response = $target->authenticate($this->username, $cnonce2, $hash2);
         $this->assertFalse($response->success);
@@ -206,7 +206,7 @@ class LogOnTest extends PHPUnit_Framework_TestCase {
         $target->setDatabaseWrapper($mockDatabaseWrapper);
         
         $cnonce = hash('md5', rand(0, getrandmax()).'MyOwnValue');
-        $hash = Encryption::stretchKey("bad$this->password$cnonce$nonce");
+        $hash = Encryption::strengthenKey("bad$this->password", "$cnonce$nonce", KEY_STRENGTH);
        
         $response = $target->authenticate($this->username, $cnonce, $hash);
         $this->assertFalse($response->success);
@@ -225,9 +225,9 @@ class LogOnTest extends PHPUnit_Framework_TestCase {
         $row = array();
         $row["AccountName"] = $this->username;
         
-        $row["Nonce"] = hash('md5', 'Just an example');
-        
-        $encryption = Encryption::encrypt("$this->password:my salt value");
+        $row["Nonce"] = Encryption::generateNonce();
+        $salted = Encryption::ensalt($this->password);
+        $encryption = Encryption::encrypt($salted);
         $row["Password"] = $encryption->encrypted;
         $row["iv"] = $encryption->iv;
         
@@ -244,13 +244,13 @@ class LogOnTest extends PHPUnit_Framework_TestCase {
         $target->setDatabaseWrapper($mockDatabaseWrapper);
 
         $nonce = $row["Nonce"];
-        $cnonce = hash('md5', rand(0, getrandmax()).'MyOwnValue');
-        $hash = Encryption::stretchKey("$this->password$cnonce$nonce");
+        $cnonce = Encryption::generateNonce();
+        $hash = Encryption::strengthenKey($this->password, "$cnonce$nonce", KEY_STRENGTH);
         $response = $target->authenticate($this->username, $cnonce, $hash);
         $this->assertTrue($response->success, $response->errorMessage);
         $this->assertRegExp('/^[a-z0-9]{32}$/', $response->content);
     }
     
-    }
+ }
 
 ?>

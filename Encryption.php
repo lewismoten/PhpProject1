@@ -1,4 +1,6 @@
 <?php
+require_once dirname(__FILE__) . '/configuration.php';
+
 class Encryption {
     public $encrypted;
     public $iv;
@@ -9,9 +11,6 @@ class Encryption {
         $iv_size = mcrypt_get_iv_size(ENCRYPTION_CIPHER, ENCRYPTION_MODE);
         $iv = mcrypt_create_iv($iv_size, MCRYPT_RAND);
         $encrypted = mcrypt_encrypt(ENCRYPTION_CIPHER, ENCRYPTION_KEY, $message, ENCRYPTION_MODE, $iv);
-        //$block = mcrypt_get_block_size(ENCRYPTION_CIPHER, ENCRYPTION_MODE);
-        //$pad = $block - (strlen($encrypted) % $block);
-        //$encrypted .= str_repeat("\0", $pad);
         $data->iv = base64_encode($iv);
         $data->encrypted = base64_encode($encrypted);
         return $data;
@@ -25,20 +24,48 @@ class Encryption {
         return rtrim($message, "\0");
     }
     
-    public static function stretchKey($password)
+    public static function stretchKey($key, $iterations)
     {
-        $key = '';
-        for ($index = 0; $index < 65536; $index++) {
-            $key = hash('md5', "$key$password");
+        $enhancedKey = $key;
+        for ($index = 0; $index < $iterations; $index++) {
+            $enhancedKey = Encryption::hash("$enhancedKey$key");
         }
-        return $key;
+        return $enhancedKey;
     }
     
-    public static function removeSalt($key)
+    public static function generateNonce()
     {
-        $i = strrpos($key, ':');
-        if($i === FALSE) return NULL;
-        return substr($key, 0, $i);
+        return Encryption::hash(rand(0, getrandmax()).time().'edqdiOCDes2b1vGO7L2Y');
+    }
+    
+    public static function hash($data)
+    {
+        return hash('md5', $data);
+    }
+    
+    public static function strengthenKey($key, $nonce, $iterations)
+    {
+        return Encryption::getDerivedKey($key, $nonce, $iterations);
+    }
+    
+    public static function getDerivedKey($key, $salt, $iterations)
+    {
+        return Encryption::stretchKey("$key$salt", $iterations);
+    }
+    
+    public static function desalt($key)
+    {
+        if(strlen($key) > 32)
+        {
+            return substr($key, 0, -32);
+        }
+        
+        return NULL;
+    }
+    
+    public static function ensalt($key)
+    {
+        return $key.Encryption::generateNonce();
     }
 }
 
