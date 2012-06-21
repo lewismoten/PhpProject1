@@ -28,14 +28,14 @@ class Encryption {
     {
         $enhancedKey = $key;
         for ($index = 0; $index < $iterations; $index++) {
-            $enhancedKey = Encryption::hash("$enhancedKey$key");
+            $enhancedKey = self::hash("$enhancedKey$key");
         }
         return $enhancedKey;
     }
     
     public static function generateNonce()
     {
-        return Encryption::hash(rand(0, getrandmax()).time().'edqdiOCDes2b1vGO7L2Y');
+        return self::hash(rand(0, getrandmax()).time().'edqdiOCDes2b1vGO7L2Y');
     }
     
     public static function hash($data)
@@ -45,12 +45,12 @@ class Encryption {
     
     public static function strengthenKey($key, $nonce, $iterations)
     {
-        return Encryption::getDerivedKey($key, $nonce, $iterations);
+        return self::getDerivedKey($key, $nonce, $iterations);
     }
     
     public static function getDerivedKey($key, $salt, $iterations)
     {
-        return Encryption::stretchKey("$key$salt", $iterations);
+        return self::stretchKey("$key$salt", $iterations);
     }
     
     public static function desalt($key)
@@ -65,7 +65,7 @@ class Encryption {
     
     public static function ensalt($key)
     {
-        return $key.Encryption::generateNonce();
+        return $key.self::generateNonce();
     }
 }
 
