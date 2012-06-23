@@ -3,7 +3,7 @@
 require_once dirname(__FILE__) . '/../Encryption.php';
 
 class EncryptionTest extends PHPUnit_Framework_TestCase {
-
+// todo: look at google authenticator TOTP for php
     public function testEncryption() {
         $originalMessage = "hello world.";
         $encryption = Encryption::encrypt($originalMessage);
