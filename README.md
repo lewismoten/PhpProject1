@@ -1,6 +1,8 @@
 PhpProject1
 ===========
 
+An early (2012) PHP experiment in learning git. The notes below are the requirements I wrote for a login service with nonce-based session tokens; `LogOn.php`, `DatabaseWrapper.php` and `tests/` are the code so far.
+
 As an unauthenticated user
 	I can ask for the api version
 	I can request an nonce from the login server
