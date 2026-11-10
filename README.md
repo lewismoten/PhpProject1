@@ -1,3 +1,5 @@
+![PhpProject1: 2012 PHP login service experiment](docs/images/social-preview.png)
+
 PhpProject1
 ===========
 
